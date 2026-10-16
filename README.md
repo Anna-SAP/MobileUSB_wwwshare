@@ -102,3 +102,7 @@ Windows 11 托盘小工具：实时统计电脑通过 **手机 USB 网络共享*
 - `src\MainForm.cs`：主窗口界面
 - `src\AutoStart.cs`：开机自启动（`HKCU\...\Run`，无需管理员权限）
 - `src\AppIcon.cs`：用代码绘制的图标
+
+## 许可证
+
+[MIT](LICENSE) © 2026 Anna Su：可自由使用、修改和分发，需保留版权声明；软件按“现状”提供，不附带任何担保。

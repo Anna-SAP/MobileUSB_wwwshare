@@ -1,0 +1,16 @@
+# Build output (build.ps1). The exe is published on the Releases page, not committed.
+obj/
+dist/
+bin/
+*.exe
+*.pdb
+
+# Editors / IDEs
+.vs/
+.vscode/
+*.user
+*.suo
+
+# OS
+Thumbs.db
+desktop.ini

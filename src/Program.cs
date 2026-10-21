@@ -9,8 +9,8 @@ using System.Windows.Forms;
 [assembly: AssemblyTitle("USB 共享流量监控")]
 [assembly: AssemblyProduct("USB 共享流量监控")]
 [assembly: AssemblyDescription("实时统计手机 USB 网络共享消耗的流量")]
-[assembly: AssemblyVersion("1.0.0.0")]
-[assembly: AssemblyFileVersion("1.0.0.0")]
+[assembly: AssemblyVersion("1.1.0.0")]
+[assembly: AssemblyFileVersion("1.1.0.0")]
 
 namespace UsbShareMonitor
 {
@@ -18,6 +18,9 @@ namespace UsbShareMonitor
     {
         internal const string AppName = "USB 共享流量监控";
         internal const string AppId = "UsbShareMonitor";
+
+        /// <summary>"1.1.0", taken from AssemblyVersion above so there is only one place to bump.</summary>
+        internal static readonly string Version = typeof(Program).Assembly.GetName().Version.ToString(3);
 
         /// <summary>Folder holding data.ini, the CSV history and the event log.</summary>
         internal static string DataDir { get; private set; }

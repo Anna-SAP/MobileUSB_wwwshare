@@ -207,12 +207,13 @@ namespace UsbShareMonitor
             _voiceMenuItem = new ToolStripMenuItem("语音播报", null, (s, e) => SetVoice(!_voiceMenuItem.Checked));
             var history = new ToolStripMenuItem("打开历史记录 (CSV)", null, (s, e) => OpenHistory());
             var folder = new ToolStripMenuItem("打开数据目录", null, (s, e) => OpenInShell(_store.DataDir));
+            var version = new ToolStripMenuItem("版本 " + Program.Version) { Enabled = false };
             var exit = new ToolStripMenuItem("退出", null, (s, e) => ExitApp("用户从托盘菜单退出"));
             menu.Items.AddRange(new ToolStripItem[]
             {
                 show, _todayMenuItem, new ToolStripSeparator(),
                 _autoStartMenuItem, _voiceMenuItem, history, folder, new ToolStripSeparator(),
-                exit,
+                version, exit,
             });
             menu.Opening += (s, e) =>
             {

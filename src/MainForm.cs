@@ -38,8 +38,10 @@ namespace UsbShareMonitor
         private ListView _dayList, _monthList;
         private ListViewItem _todayRow, _monthRow;
         private Font _boldRowFont;
-        private CheckBox _autoStart;
-        private bool _syncingAutoStart;
+        private CheckBox _autoStart, _voice;
+        private LinkLabel _voicePreview;
+        private readonly ToolTip _tips = new();
+        private bool _syncingAutoStart, _syncingVoice;
         private DateTime _listedDay = DateTime.MinValue;
 
         public MainForm(TrafficStore store, Icon icon)
@@ -82,12 +84,27 @@ namespace UsbShareMonitor
         public event Action HiddenToTray;
         public event Action OpenHistoryRequested;
         public event Action OpenFolderRequested;
+        public event Action<bool> VoiceToggled;
+        public event Action VoicePreviewRequested;
 
         public void SetAutoStartChecked(bool on)
         {
             _syncingAutoStart = true;
             _autoStart.Checked = on;
             _syncingAutoStart = false;
+        }
+
+        public void SetVoiceChecked(bool on)
+        {
+            _syncingVoice = true;
+            _voice.Checked = on;
+            _syncingVoice = false;
+        }
+
+        public void SetVoiceTip(string tip)
+        {
+            _tips.SetToolTip(_voice, tip);
+            _tips.SetToolTip(_voicePreview, "按当前流量播报一次，听听效果");
         }
 
         public void UpdateView(ViewState v, bool rebuild)
@@ -261,10 +278,12 @@ namespace UsbShareMonitor
             {
                 Dock = DockStyle.Fill,
                 AutoSize = true,
-                ColumnCount = 4,
+                ColumnCount = 6,
                 RowCount = 2,
                 Margin = new Padding(0),
             };
+            p.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            p.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             p.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             p.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             p.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
@@ -272,6 +291,10 @@ namespace UsbShareMonitor
 
             _autoStart = new CheckBox { Text = "开机自启动", AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(0, S(4), 0, S(4)) };
             _autoStart.CheckedChanged += (s, e) => { if (!_syncingAutoStart) AutoStartToggled?.Invoke(_autoStart.Checked); };
+            _voice = new CheckBox { Text = "语音播报", AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(S(14), S(4), 0, S(4)) };
+            _voice.CheckedChanged += (s, e) => { if (!_syncingVoice) VoiceToggled?.Invoke(_voice.Checked); };
+            _voicePreview = new LinkLabel { Text = "试听", AutoSize = true, Anchor = AnchorStyles.Left, LinkBehavior = LinkBehavior.HoverUnderline, Margin = new Padding(S(2), S(4), 0, S(4)) };
+            _voicePreview.LinkClicked += (s, e) => VoicePreviewRequested?.Invoke();
             var hint = new Label
             {
                 Text = "关闭窗口后将驻留系统托盘继续统计，右键托盘图标选择“退出”可完全退出。",
@@ -280,10 +303,12 @@ namespace UsbShareMonitor
                 Margin = new Padding(0, S(8), 0, 0),
             };
             p.Controls.Add(_autoStart, 0, 0);
-            p.Controls.Add(FooterButton("打开历史记录", () => OpenHistoryRequested?.Invoke()), 2, 0);
-            p.Controls.Add(FooterButton("打开数据目录", () => OpenFolderRequested?.Invoke()), 3, 0);
+            p.Controls.Add(_voice, 1, 0);
+            p.Controls.Add(_voicePreview, 2, 0);
+            p.Controls.Add(FooterButton("打开历史记录", () => OpenHistoryRequested?.Invoke()), 4, 0);
+            p.Controls.Add(FooterButton("打开数据目录", () => OpenFolderRequested?.Invoke()), 5, 0);
             p.Controls.Add(hint, 0, 1);
-            p.SetColumnSpan(hint, 4);
+            p.SetColumnSpan(hint, 6);
             return p;
         }
 

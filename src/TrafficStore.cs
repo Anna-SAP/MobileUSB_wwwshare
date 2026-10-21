@@ -92,7 +92,7 @@ namespace UsbShareMonitor
         public void Save()
         {
             var sb = new StringBuilder();
-            sb.AppendLine("# USB 共享流量监控数据文件。如需修改 keywords，请先从托盘菜单退出程序。");
+            sb.AppendLine("# USB 共享流量监控数据文件。如需修改 [settings] 里的设置（keywords、语音播报等），请先从托盘菜单退出程序。");
             sb.AppendLine("[settings]");
             foreach (var kv in Settings) sb.Append(kv.Key).Append('=').AppendLine(kv.Value);
             sb.AppendLine("[adapters]");

@@ -18,13 +18,15 @@ namespace UsbShareMonitor
 
         private readonly TrafficStore _store;
         private readonly AdapterMonitor _monitor;
+        private readonly VoiceAnnouncer _announcer;
+        private readonly Speech _speech;
         private readonly MainForm _form;
         private readonly NotifyIcon _tray;
         private readonly Timer _timer;
         private readonly Icon _iconOnline, _iconOffline, _windowIcon;
         private readonly Stopwatch _clock = Stopwatch.StartNew();
         private readonly List<RegisteredWaitHandle> _waits = new();
-        private ToolStripMenuItem _todayMenuItem, _autoStartMenuItem;
+        private ToolStripMenuItem _todayMenuItem, _autoStartMenuItem, _voiceMenuItem;
 
         private List<AdapterInfo> _adapters = new();
         private DateTime _currentDay = DateTime.Today;
@@ -43,6 +45,8 @@ namespace UsbShareMonitor
             _store.Log("程序启动" + (startInTray ? "（托盘模式）" : "") + "，数据目录：" + _store.DataDir);
             if (_store.IsFirstRun) _store.Log("首次运行：以网卡当前计数为起点开始统计");
             _monitor = new AdapterMonitor(_store.Baselines, _store.GetSetting("keywords"), _store.IsFirstRun);
+            _announcer = new VoiceAnnouncer(_store);
+            _speech = new Speech(_store);
 
             int small = SystemInformation.SmallIconSize.Width;
             _iconOnline = AppIcon.Create(true, small);
@@ -54,6 +58,9 @@ namespace UsbShareMonitor
             _form.HiddenToTray += OnHiddenToTray;
             _form.OpenHistoryRequested += OpenHistory;
             _form.OpenFolderRequested += () => OpenInShell(_store.DataDir);
+            _form.VoiceToggled += SetVoice;
+            _form.VoicePreviewRequested += PreviewVoice;
+            _form.SetVoiceTip($"今日合计每增加 {VoiceAnnouncer.Size(_announcer.Step)} 语音播报一次");
             _form.VisibleChanged += (s, e) => { if (_form.Visible) RefreshWindow(true); };
             _form.FormClosed += (s, e) => { _formClosed = true; ExitApp("窗口被系统关闭"); };
             _ = _form.Handle; // create the window now so background threads can marshal onto the UI thread
@@ -64,6 +71,7 @@ namespace UsbShareMonitor
 
             try { AutoStart.RefreshCommand(); } catch (Exception) { }
             SyncAutoStartUi();
+            SyncVoiceUi();
 
             Tick(); // the first sample sets the counter baselines
             _timer = new Timer { Interval = 1000 };
@@ -87,6 +95,7 @@ namespace UsbShareMonitor
             if (disposing)
             {
                 _timer?.Dispose();
+                _speech?.Dispose();
                 _tray?.Dispose();
                 _form?.Dispose();
                 _iconOnline?.Dispose();
@@ -101,6 +110,7 @@ namespace UsbShareMonitor
             try
             {
                 Sample();
+                Announce();
                 if (_store.Dirty && (DateTime.UtcNow - _lastSaveUtc).TotalSeconds >= SaveIntervalSeconds) Save();
                 UpdateTray();
                 RefreshWindow(false);
@@ -140,6 +150,14 @@ namespace UsbShareMonitor
             _txSpeed = meaningful ? r.Tx / elapsed : 0;
             _hasSampled = true;
             _adapters = r.Adapters;
+        }
+
+        private void Announce()
+        {
+            string sentence = _announcer.Update(_store.Get(_currentDay).Total);
+            if (sentence == null) return;
+            _store.Log("语音播报：" + sentence);
+            _speech.Speak(sentence);
         }
 
         private void Save()
@@ -186,13 +204,14 @@ namespace UsbShareMonitor
             show.Font = new Font(show.Font, FontStyle.Bold);
             _todayMenuItem = new ToolStripMenuItem("今日") { Enabled = false };
             _autoStartMenuItem = new ToolStripMenuItem("开机自启动", null, (s, e) => SetAutoStart(!_autoStartMenuItem.Checked));
+            _voiceMenuItem = new ToolStripMenuItem("语音播报", null, (s, e) => SetVoice(!_voiceMenuItem.Checked));
             var history = new ToolStripMenuItem("打开历史记录 (CSV)", null, (s, e) => OpenHistory());
             var folder = new ToolStripMenuItem("打开数据目录", null, (s, e) => OpenInShell(_store.DataDir));
             var exit = new ToolStripMenuItem("退出", null, (s, e) => ExitApp("用户从托盘菜单退出"));
             menu.Items.AddRange(new ToolStripItem[]
             {
                 show, _todayMenuItem, new ToolStripSeparator(),
-                _autoStartMenuItem, history, folder, new ToolStripSeparator(),
+                _autoStartMenuItem, _voiceMenuItem, history, folder, new ToolStripSeparator(),
                 exit,
             });
             menu.Opening += (s, e) =>
@@ -232,6 +251,7 @@ namespace UsbShareMonitor
             {
                 _store.Add(_currentDay, rx, tx);
                 _store.Log($"首次运行：已将启动前的流量计入今天（下载 {Fmt.Bytes(rx)}，上传 {Fmt.Bytes(tx)}）");
+                _announcer.Resync(); // an import, not live usage: don't announce it
                 Save();
                 RefreshWindow(true);
                 UpdateTray();
@@ -263,6 +283,24 @@ namespace UsbShareMonitor
             _autoStartMenuItem.Checked = on;
             _form.SetAutoStartChecked(on);
         }
+
+        private void SetVoice(bool enable)
+        {
+            if (_announcer.Enabled != enable)
+            {
+                _announcer.Enabled = enable;
+                _store.Log(enable ? "已开启语音播报" : "已关闭语音播报");
+            }
+            SyncVoiceUi();
+        }
+
+        private void SyncVoiceUi()
+        {
+            _voiceMenuItem.Checked = _announcer.Enabled;
+            _form.SetVoiceChecked(_announcer.Enabled);
+        }
+
+        private void PreviewVoice() => _speech.Speak(_announcer.Sample(_store.Get(_currentDay).Total));
 
         private void OpenHistory()
         {
@@ -323,6 +361,7 @@ namespace UsbShareMonitor
             SystemEvents.PowerModeChanged -= OnPowerModeChanged;
             foreach (var w in _waits) w.Unregister(null);
             _monitor.Dispose();
+            _speech.Dispose();
             _tray.Visible = false;
             _form.AllowClose = true;
             if (!_formClosed && !_form.IsDisposed) _form.Close();
